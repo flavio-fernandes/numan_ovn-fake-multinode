@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RUNC_CMD='sudo docker'
+RUNC_CMD="${RUNC_CMD:-sudo docker}"
 
 BASE_IMAGE="ovn/cinc"
 CENTRAL_IMAGE="ovn/ovn-multi-node"
@@ -14,7 +14,7 @@ GW_PREFIX="ovn-gw-"
 CHASSIS_COUNT=2
 CHASSIS_NAMES=()
 
-GW_COUNT=1
+GW_COUNT=0
 GW_NAMES=()
 
 OVN_BR="br-ovn"
@@ -82,7 +82,7 @@ function start-container() {
   local volumes run_cmd
   volumes=""
 
-  ${RUNC_CMD} run -dt ${volumes} -v "/tmp/ovn-multinode:/data" -v "/tmp/ovn-multinode:/etc/ovn" --privileged \
+  ${RUNC_CMD} run -dt ${volumes} -v "/tmp/ovn-multinode:/data" --privileged \
                 --name="${name}" --hostname="${name}" "${image}" > /dev/null
 }
 
@@ -167,14 +167,14 @@ EOF
 
     chmod 0755 /tmp/ovn-multinode/configure_ovn.sh
 
-    docker exec ${CENTRAL_NAME} bash /data/configure_ovn.sh
+    ${RUNC_CMD} exec ${CENTRAL_NAME} bash /data/configure_ovn.sh
 
     for name in "${GW_NAMES[@]}"; do
-        docker exec ${name} bash /data/configure_ovn.sh
+        ${RUNC_CMD} exec ${name} bash /data/configure_ovn.sh
     done
 
     for name in "${CHASSIS_NAMES[@]}"; do
-        docker exec ${name} bash /data/configure_ovn.sh
+        ${RUNC_CMD} exec ${name} bash /data/configure_ovn.sh
     done 
 }
 
@@ -220,23 +220,23 @@ function start() {
     add-ovs-docker-ports
 
     # Start OVN db servers on central node
-    docker exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_northd
+    ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_northd
     sleep 2
-    docker exec ${CENTRAL_NAME} ovn-nbctl set-connection ptcp:6641
-    docker exec ${CENTRAL_NAME} ovn-sbctl set-connection ptcp:6642
+    ${RUNC_CMD} exec ${CENTRAL_NAME} ovn-nbctl set-connection ptcp:6641
+    ${RUNC_CMD} exec ${CENTRAL_NAME} ovn-sbctl set-connection ptcp:6642
 
     # Start openvswitch and ovn-controller on each node
-    docker exec ${CENTRAL_NAME} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${CENTRAL_NAME}
-    docker exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_controller
+    ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${CENTRAL_NAME}
+    ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_controller
 
     for name in "${GW_NAMES[@]}"; do
-        docker exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
-        docker exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
+        ${RUNC_CMD} exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
+        ${RUNC_CMD} exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
     done
 
     for name in "${CHASSIS_NAMES[@]}"; do
-        docker exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
-        docker exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
+        ${RUNC_CMD} exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
+        ${RUNC_CMD} exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
     done
 
     configure-ovn
@@ -259,8 +259,8 @@ function build-images() {
     cp -rf $OVN_SRC_PATH ovn
     rm -rf ovs
     cp -rf $OVS_SRC_PATH ovs
-    docker build -t ovn/cinc -f Dockerfile .
-    docker build -t ovn/ovn-multi-node  --build-arg OVS_SRC_PATH=ovs --build-arg OVN_SRC_PATH=ovn -f fedora/Dockerfile .
+    ${RUNC_CMD} build -t ovn/cinc -f Dockerfile .
+    ${RUNC_CMD} build -t ovn/ovn-multi-node  --build-arg OVS_SRC_PATH=ovs --build-arg OVN_SRC_PATH=ovn -f fedora/Dockerfile .
     rm -rf ovn
     rm -rf ovs
 }

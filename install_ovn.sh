@@ -20,7 +20,8 @@ cd /ovs;
 ./boot.sh
 ./configure --localstatedir="/var" --sysconfdir="/etc" --prefix="/usr" \
 --enable-ssl
-make -j8; make install
+make -j8;
+#make install
 cd /ovn
 
 # build and install
@@ -28,16 +29,6 @@ cd /ovn
 ./configure --localstatedir="/var" --sysconfdir="/etc" --prefix="/usr" \
 --enable-ssl --with-ovs-source=/ovs/ --with-ovs-build=/ovs/
 make -j8; make install
-
-cp /ovs/rhel/usr_lib_systemd_system_openvswitch.service /usr/lib/systemd/system/openvswitch.service
-cp /ovs/rhel/usr_lib_systemd_system_ovsdb-server.service /usr/lib/systemd/system/ovsdb-server.service
-cp /ovs/rhel/usr_lib_systemd_system_ovs-vswitchd.service.in /usr/lib/systemd/system/ovs-vswitchd.service
-cp /ovn/rhel/usr_lib_systemd_system_ovn-controller.service /usr/lib/systemd/system/ovn-controller.service
-cp /ovn/rhel/usr_lib_systemd_system_ovn-northd.service /usr/lib/systemd/system/ovn-northd.service
-
-sed -i '/ExecStartPre/d' /usr/lib/systemd/system/ovs-vswitchd.service
-sed -i '/begin_dpdk/d' /usr/lib/systemd/system/ovs-vswitchd.service
-sed -i '/end_dpdk/d' /usr/lib/systemd/system/ovs-vswitchd.service
 
 # remove unused packages to make the container light weight.
 for i in $(package-cleanup --leaves --all);

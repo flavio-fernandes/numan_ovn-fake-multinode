@@ -11,7 +11,7 @@ CENTRAL_NAME="ovn-central"
 CHASSIS_PREFIX="ovn-chassis-"
 GW_PREFIX="ovn-gw-"
 
-CHASSIS_COUNT=2
+CHASSIS_COUNT=3
 CHASSIS_NAMES=()
 
 GW_COUNT=0
@@ -24,6 +24,8 @@ OVS_DOCKER="./ovs-docker"
 
 OVN_SRC_PATH="${OVN_SRC_PATH:-}"
 OVS_SRC_PATH="${OVS_SRC_PATH:-}"
+
+OVNCTL_PATH=/usr/share/ovn/scripts/ovn-ctl
 
 function check-selinux() {
   if [[ "$(getenforce)" = "Enforcing" ]]; then
@@ -220,23 +222,23 @@ function start() {
     add-ovs-docker-ports
 
     # Start OVN db servers on central node
-    ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_northd
+    ${RUNC_CMD} exec ${CENTRAL_NAME} ${OVNCTL_PATH} start_northd
     sleep 2
     ${RUNC_CMD} exec ${CENTRAL_NAME} ovn-nbctl set-connection ptcp:6641
     ${RUNC_CMD} exec ${CENTRAL_NAME} ovn-sbctl set-connection ptcp:6642
 
     # Start openvswitch and ovn-controller on each node
     ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${CENTRAL_NAME}
-    ${RUNC_CMD} exec ${CENTRAL_NAME} /usr/share/ovn/scripts/ovn-ctl start_controller
+    ${RUNC_CMD} exec ${CENTRAL_NAME} ${OVNCTL_PATH} start_controller
 
     for name in "${GW_NAMES[@]}"; do
         ${RUNC_CMD} exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
-        ${RUNC_CMD} exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
+        ${RUNC_CMD} exec ${name} ${OVNCTL_PATH} start_controller
     done
 
     for name in "${CHASSIS_NAMES[@]}"; do
         ${RUNC_CMD} exec ${name} /usr/share/openvswitch/scripts/ovs-ctl start --system-id=${name}
-        ${RUNC_CMD} exec ${name} /usr/share/ovn/scripts/ovn-ctl start_controller
+        ${RUNC_CMD} exec ${name} ${OVNCTL_PATH} start_controller
     done
 
     configure-ovn
@@ -324,5 +326,4 @@ case "${1:-""}" in
         ;;
     esac
 
-echo "Exiting.. Bye"
 exit 0
